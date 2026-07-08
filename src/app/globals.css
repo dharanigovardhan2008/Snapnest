@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  /* Fonts */
+  --font-heading: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+
+  /* Colors */
+  --color-studio-white: #FFFFFF;
+  --color-studio-grey: #F8FAFC;
+  --color-studio-border: #F1F5F9;
+  --color-ink-black: #0F172A;
+  --color-ink-muted: #64748B;
+  --color-brand-primary: #2563EB;
+
+  /* Shadows */
+  --shadow-studio: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+  --shadow-polaroid: 0 20px 40px -15px rgba(0, 0, 0, 0.1);
+  --shadow-soft: 0 10px 30px -5px rgba(0, 0, 0, 0.04);
+
+  /* Radius (The Pill System) */
+  --radius-pill: 9999px;
+  --radius-studio: 40px;
+}
+
+@layer base {
+  body {
+    @apply bg-studio-white text-ink-black font-body antialiased selection:bg-brand-primary/10;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+@layer components {
+  /* Buttons */
+  .pill-button {
+    @apply rounded-pill px-8 py-3.5 font-semibold transition-all duration-300 active:scale-95;
+  }
+
+  /* Glass Navbar */
+  .studio-glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+  }
+
+  /* Photo Wall String */
+  .photo-wall-string {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #E2E8F0 15%, #E2E8F0 85%, transparent);
+    width: 100%;
+  }
+}
