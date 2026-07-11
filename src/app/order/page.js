@@ -72,11 +72,13 @@ function OrderContent() {
     if (selectedProduct) {
       if (selectedProduct.type !== 'custom' && selectedProduct.imageUrl) {
         setDesignUrl(selectedProduct.imageUrl);
-      } else {
+      } else if (selectedProduct.type === 'custom') {
+        // For custom products, only reset designUrl when product changes
+        // This allows users to upload their own design
         setDesignUrl(null);
       }
     }
-  }, [selectedProduct]);
+  }, [selectedProduct?.id]); // Changed dependency to only trigger when product ID changes
 
   const loadData = async () => {
     if (productId && products.length > 0) {
@@ -97,8 +99,14 @@ function OrderContent() {
   };
 
   const handleImageUpload = (url) => {
-    setDesignUrl(url);
-    toast.success('Image uploaded successfully!');
+    if (url && selectedProduct?.type === 'custom') {
+      setDesignUrl(url);
+      toast.success('Image uploaded successfully!');
+    } else if (url && selectedProduct?.type !== 'custom') {
+      toast.error('This product doesn\'t require image upload.');
+    } else if (!url) {
+      toast.error('Upload failed. Please try again.');
+    }
   };
 
   const handleNextStep = () => {

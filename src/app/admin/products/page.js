@@ -55,8 +55,14 @@ function AdminProductsContent() {
 
   // --- ADD PRODUCT LOGIC ---
   const handleAddProduct = async () => {
-    if (!newData.name || !newData.price || !newData.size) {
+    if (!newData.name || !newData.price || !newData.size || !newData.type) {
       toast.error('Please fill all required fields');
+      return;
+    }
+
+    // Validation for standard products - must have an image
+    if (newData.type === 'standard' && !newData.imageUrl) {
+      toast.error('Standard products must have a product photo');
       return;
     }
 
@@ -97,6 +103,7 @@ function AdminProductsContent() {
       price: product.price,
       description: product.description,
       size: product.size,
+      type: product.type,
       imageUrl: product.imageUrl || '',
     });
   };
@@ -107,6 +114,12 @@ function AdminProductsContent() {
   };
 
   const handleSaveEdit = async (productId) => {
+    // Validation for standard products - must have an image
+    if (editData.type === 'standard' && !editData.imageUrl) {
+      toast.error('Standard products must have a product photo');
+      return;
+    }
+
     try {
       await productService.updateProduct(productId, {
         name: editData.name,
@@ -114,6 +127,7 @@ function AdminProductsContent() {
         price: parseFloat(editData.price),
         description: editData.description,
         size: editData.size,
+        type: editData.type,
         imageUrl: editData.imageUrl,
       });
 
@@ -190,7 +204,9 @@ function AdminProductsContent() {
                 <div className="w-full h-48 bg-[#F8FAFC] border-b border-[#F1F5F9] relative flex flex-col items-center justify-center group overflow-hidden">
                   {isEditing ? (
                     <div className="absolute inset-0 p-4 bg-white/90 backdrop-blur-sm z-10 overflow-y-auto custom-scrollbar">
-                      <p className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Replace Product Photo</p>
+                      <p className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">
+                        {editData.type === 'standard' ? 'Replace Product Photo (Required)' : 'Product Photo (Optional)'}
+                      </p>
                       <ImageUpload 
                         onUploadSuccess={(url) => setEditData({...editData, imageUrl: url})} 
                         folder="products" 
@@ -203,7 +219,9 @@ function AdminProductsContent() {
                       ) : (
                         <div className="flex flex-col items-center gap-2">
                           {product.type === 'custom' ? <Palette size={32} className="text-[#E11D48]" /> : <Sparkles size={32} className="text-[#2563EB]" />}
-                          <span className="text-[12px] font-medium text-[#94A3B8]">No Photo Uploaded</span>
+                          <span className="text-[12px] font-medium text-[#94A3B8]">
+                            {product.type === 'custom' ? 'Customer Upload Required' : 'No Photo Uploaded'}
+                          </span>
                         </div>
                       )}
                     </>
@@ -244,6 +262,18 @@ function AdminProductsContent() {
                         />
                       </div>
 
+                      <div>
+                        <label className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider ml-2 mb-1 block">Product Type *</label>
+                        <select
+                          value={editData.type}
+                          onChange={(e) => setEditData({ ...editData, type: e.target.value })}
+                          className="w-full bg-[#F8FAFC] border border-[#E2E8F0] focus:border-[#0F172A] focus:ring-4 focus:ring-[#0F172A]/5 rounded-xl py-2.5 px-4 text-[#0F172A] font-medium transition-all outline-none"
+                        >
+                          <option value="standard">Standard (Pre-designed)</option>
+                          <option value="custom">Custom (Customer Upload)</option>
+                        </select>
+                      </div>
+
                       <div className="grid grid-cols-3 gap-3">
                         <div>
                           <label className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider ml-1 mb-1 block truncate">Size</label>
@@ -279,8 +309,12 @@ function AdminProductsContent() {
                     <div className="flex-grow">
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <h3 className="text-[22px] font-bold text-[#0F172A] font-[family-name:var(--font-outfit)] tracking-tight">{product.name}</h3>
-                        <span className="bg-[#F8FAFC] border border-[#F1F5F9] text-[#64748B] px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase shrink-0">
-                          {product.type}
+                        <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase shrink-0 ${
+                          product.type === 'custom' 
+                            ? 'bg-rose-50 border border-rose-200 text-rose-700' 
+                            : 'bg-blue-50 border border-blue-200 text-blue-700'
+                        }`}>
+                          {product.type === 'custom' ? 'Custom' : 'Standard'}
                         </span>
                       </div>
                       <p className="text-[14px] text-[#64748B] leading-relaxed mb-4">{product.description}</p>
@@ -356,7 +390,9 @@ function AdminProductsContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Photo Upload Side */}
                 <div>
-                  <label className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider ml-2 mb-2 block">Product Photo</label>
+                  <label className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider ml-2 mb-2 block">
+                    Product Photo {newData.type === 'standard' && <span className="text-rose-500">*</span>}
+                  </label>
                   <div className="h-[280px]">
                     <ImageUpload 
                       onUploadSuccess={(url) => setNewData({...newData, imageUrl: url})} 
@@ -368,10 +404,37 @@ function AdminProductsContent() {
                       <Sparkles size={12} /> Photo uploaded successfully
                     </p>
                   )}
+                  {newData.type === 'standard' && !newData.imageUrl && (
+                    <p className="text-[11px] text-rose-500 font-medium mt-2 text-center">
+                      Required for standard products
+                    </p>
+                  )}
+                  {newData.type === 'custom' && (
+                    <p className="text-[11px] text-[#64748B] font-medium mt-2 text-center">
+                      Optional - customers will upload their own design
+                    </p>
+                  )}
                 </div>
 
                 {/* Details Side */}
                 <div className="space-y-4">
+                  <div>
+                    <label className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider ml-2 mb-1 block">Product Type *</label>
+                    <select 
+                      value={newData.type} 
+                      onChange={(e) => setNewData({ ...newData, type: e.target.value })} 
+                      className="w-full bg-[#F8FAFC] border border-[#E2E8F0] focus:border-[#0F172A] focus:ring-4 focus:ring-[#0F172A]/5 rounded-xl py-3 px-4 text-[#0F172A] font-medium transition-all outline-none"
+                    >
+                      <option value="standard">Standard (Pre-designed Product)</option>
+                      <option value="custom">Custom (Customer Upload)</option>
+                    </select>
+                    <p className="text-[11px] text-[#64748B] mt-1.5 ml-2">
+                      {newData.type === 'standard' 
+                        ? '📸 Product photo required - customers order this exact design' 
+                        : '✨ Customers upload their own custom design'}
+                    </p>
+                  </div>
+
                   <div>
                     <label className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider ml-2 mb-1 block">Product Name *</label>
                     <input type="text" value={newData.name} onChange={(e) => setNewData({ ...newData, name: e.target.value })} className="w-full bg-[#F8FAFC] border border-[#E2E8F0] focus:border-[#0F172A] focus:ring-4 focus:ring-[#0F172A]/5 rounded-xl py-3 px-4 text-[#0F172A] font-semibold transition-all outline-none" placeholder="e.g. Premium Polaroid" />
@@ -382,14 +445,7 @@ function AdminProductsContent() {
                     <textarea value={newData.description} onChange={(e) => setNewData({ ...newData, description: e.target.value })} className="w-full bg-[#F8FAFC] border border-[#E2E8F0] focus:border-[#0F172A] focus:ring-4 focus:ring-[#0F172A]/5 rounded-xl py-3 px-4 text-[#0F172A] text-[14px] transition-all outline-none resize-none" rows="2" placeholder="Brief product description..." />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[10px] sm:text-[12px] font-bold text-[#64748B] uppercase tracking-wider ml-1 mb-1 block">Type</label>
-                      <select value={newData.type} onChange={(e) => setNewData({ ...newData, type: e.target.value })} className="w-full bg-[#F8FAFC] border border-[#E2E8F0] focus:border-[#0F172A] focus:ring-4 focus:ring-[#0F172A]/5 rounded-xl py-3 px-3 text-[#0F172A] font-medium transition-all outline-none text-[13px] sm:text-[14px]">
-                        <option value="standard">Standard</option>
-                        <option value="custom">Custom</option>
-                      </select>
-                    </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] sm:text-[12px] font-bold text-[#64748B] uppercase tracking-wider ml-1 mb-1 block truncate">Original (₹)</label>
                       <input type="number" value={newData.originalPrice} onChange={(e) => setNewData({ ...newData, originalPrice: e.target.value })} className="w-full bg-[#F8FAFC] border border-[#E2E8F0] focus:border-[#0F172A] focus:ring-4 focus:ring-[#0F172A]/5 rounded-xl py-3 px-3 text-[#0F172A] font-medium transition-all outline-none placeholder:text-[#94A3B8]" placeholder="499" />
