@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows } from '@react-three/drei';
-import PolaroidModel from './PolaroidModel';
+import ProductModel from './ProductModel';
 
 export default function Scene3D({ imageUrl = null, type = 'polaroid' }) {
   return (
@@ -21,8 +21,8 @@ export default function Scene3D({ imageUrl = null, type = 'polaroid' }) {
           {/* Environment */}
           <Environment preset="studio" />
 
-          {/* 3D Model */}
-          <PolaroidModel imageUrl={imageUrl} rotation={!imageUrl} />
+          {/* 3D Model dynamically receives the product type */}
+          <ProductModel imageUrl={imageUrl} type={type} rotation={!imageUrl} />
 
           {/* Shadow */}
           <ContactShadows

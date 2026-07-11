@@ -12,7 +12,8 @@ import {
   CheckCircle,
   Package,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  Wallet
 } from 'lucide-react';
 import ProtectedRoute from '../../components/shared/ProtectedRoute';
 import AdminLayout from '../../components/admin/AdminLayout';
@@ -26,6 +27,7 @@ function AdminDashboardContent() {
   const [stats, setStats] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [reconciliationStats, setReconciliationStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,6 +46,26 @@ function AdminDashboardContent() {
       setStats(statsData);
       setRecentOrders(allOrders.slice(0, 5));
       setPendingOrders(pending);
+
+      // Compute Cash Reconciliation for Delivery Partners
+      const campuses = ['Loyola College', 'Saveetha University', 'Saveetha Dental College', 'Sathyabama University'];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const cashStats = {};
+      campuses.forEach(c => cashStats[c] = 0);
+
+      allOrders.forEach(o => {
+        if (o.deliveryType === 'delivery' && campuses.includes(o.address?.name)) {
+          const orderDate = o.updatedAt || o.createdAt;
+          // Calculate sum of cash collected today by the partners
+          if (orderDate >= today && (o.status === 'payment_completed' || o.status === 'delivered')) {
+            cashStats[o.address.name] += (o.halfPayment || 0);
+          }
+        }
+      });
+      setReconciliationStats(cashStats);
+
     } catch (error) {
       console.error('Error loading dashboard:', error);
       toast.error('Failed to load dashboard data');
@@ -103,7 +125,7 @@ function AdminDashboardContent() {
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-8 font-[family-name:var(--font-geist)]">
         
         {/* Header */}
         <div>
@@ -173,6 +195,46 @@ function AdminDashboardContent() {
             );
           })}
         </div>
+
+        {/* NEW: Partner Cash Reconciliation Panel */}
+        {reconciliationStats && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white border border-[#F1F5F9] rounded-[32px] p-6 md:p-8 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.03)]"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                <Wallet size={20} />
+              </div>
+              <h2 className="text-[20px] font-bold text-[#0F172A] font-[family-name:var(--font-outfit)] tracking-tight">Today's Partner Cash Collection</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Object.keys(reconciliationStats).map(campus => (
+                <div key={campus} className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[24px] p-5">
+                  <p className="text-[13px] text-[#64748B] font-semibold mb-1 truncate">{campus}</p>
+                  <p className="text-2xl font-bold text-[#0F172A] font-[family-name:var(--font-outfit)] tracking-tight mb-4">
+                    {formatCurrency(reconciliationStats[campus])}
+                  </p>
+                  <button 
+                    onClick={() => {
+                      if(reconciliationStats[campus] > 0) {
+                        toast.success(`${campus} cash marked as settled.`);
+                      } else {
+                        toast.error(`No cash to settle for ${campus} today.`);
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[13px] border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  >
+                    Mark as Settled
+                  </button>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Split Layout: Recent Orders & Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

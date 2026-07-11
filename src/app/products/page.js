@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Sparkles, Palette, ImageIcon } from 'lucide-react';
+import { useState } from 'react';
 import Navigation from '../../components/shared/Navigation';
 import Footer from '../../components/shared/Footer';
 import { useProducts } from '../../hooks/useProducts';
@@ -11,38 +12,35 @@ import { formatCurrency } from '../../utils/helpers';
 
 export default function ProductsPage() {
   const { products, loading } = useProducts();
+  const [filter, setFilter] = useState('all');
 
-  // Legacy pricing map for your original items
-  const pricingData = {
-    'polaroid': { original: 20, final: 10 },
-    'polaroid-custom': { original: 25, final: 20 },
-    'poster-a5': { original: 40, final: 30 },
-    'poster-a5-custom': { original: 50, final: 40 },
-    'poster-a3': { original: 70, final: 60 },
-    'poster-a3-custom': { original: 100, final: 70 },
-  };
-
-  // Helper to dynamically calculate pricing for NEW products added via Admin panel
-  const getProductPricing = (product) => {
-    if (pricingData[product.id]) return pricingData[product.id];
+  // PRICING LOGIC: Reads from the new 'variants' array and finds the lowest price
+  const getDisplayPricing = (product) => {
+    if (product.variants && product.variants.length > 0) {
+      const minPriceVariant = product.variants.reduce((prev, curr) => 
+        (prev.price < curr.price) ? prev : curr
+      );
+      return {
+        original: minPriceVariant.originalPrice || Math.round(minPriceVariant.price * 1.20),
+        final: minPriceVariant.price,
+        hasMultipleSizes: product.variants.length > 1
+      };
+    }
     
-    // For newly created products: auto-generate a 20% markup for the "Original" price to show a discount
-    const originalPrice = Math.round(product.price * 1.20);
+    // Fallback for older flat products
     return {
-      original: originalPrice,
-      final: product.price
+      original: product.originalPrice || Math.round(product.price * 1.20),
+      final: product.price,
+      hasMultipleSizes: false
     };
   };
 
-  // Upgraded Visuals: Automatically uses uploaded images if they exist!
   const getProductVisual = (product) => {
     const isCustom = product.type === 'custom';
-    
     const standardGradient = "from-blue-400/30 via-indigo-300/30 to-purple-300/30";
     const customGradient = "from-rose-400/30 via-pink-300/30 to-amber-200/30";
     const activeGradient = isCustom ? customGradient : standardGradient;
 
-    // 1. IF THE ADMIN UPLOADED A REAL PHOTO: Display it beautifully
     if (product.imageUrl) {
       return {
         badge: isCustom ? 'Custom Design' : 'Premium Print',
@@ -59,7 +57,6 @@ export default function ProductsPage() {
       };
     }
 
-    // 2. IF NO PHOTO WAS UPLOADED: Fallback to the CSS Mockups based on name/id
     const id = product.id.toLowerCase();
     const name = product.name.toLowerCase();
 
@@ -97,7 +94,6 @@ export default function ProductsPage() {
       };
     }
 
-    // Default Fallback for new products without photos
     return {
       badge: isCustom ? 'Custom Premium' : 'Gallery Size',
       icon: isCustom ? <Palette size={14} className="text-[#E11D48]" /> : <Sparkles size={14} className="text-[#2563EB]" />,
@@ -114,13 +110,17 @@ export default function ProductsPage() {
     };
   };
 
+  const filteredProducts = products.filter((product) => {
+    if (filter === 'all') return true;
+    return product.type === filter;
+  });
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-[family-name:var(--font-geist)] selection:bg-[#2563EB]/10 selection:text-[#0F172A]">
       <Navigation />
       
       <main className="pt-40 pb-32">
-        {/* Header Section */}
-        <div className="max-w-7xl mx-auto px-6 mb-24 text-center">
+        <div className="max-w-7xl mx-auto px-6 mb-12 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -136,32 +136,54 @@ export default function ProductsPage() {
           </motion.div>
         </div>
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="py-32 flex justify-center">
-            <LoadingSpinner />
+        {!loading && (
+          <div className="flex justify-center mb-16">
+            <div className="inline-flex p-1.5 bg-[#E2E8F0]/50 rounded-full overflow-x-auto custom-scrollbar max-w-full">
+              {[
+                { key: 'all', label: 'All Formats' },
+                { key: 'standard', label: 'Standard Prints' },
+                { key: 'custom', label: 'Custom Designs' },
+              ].map((tab) => {
+                const isActive = filter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setFilter(tab.key)}
+                    className={`relative px-6 py-2.5 rounded-full text-[14px] font-medium whitespace-nowrap transition-all duration-300 ${
+                      isActive ? 'text-[#0F172A] shadow-[0_2px_10px_rgba(0,0,0,0.06)]' : 'text-[#64748B] hover:text-[#0F172A]'
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.div layoutId="activeProductFilter" className="absolute inset-0 bg-white rounded-full z-0" transition={{ type: "spring", stiffness: 300, damping: 25 }} />
+                    )}
+                    <span className="relative z-10">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        )}
+
+        {loading ? (
+          <div className="py-32 flex justify-center"><LoadingSpinner /></div>
         ) : (
-          /* Product Grid */
           <div className="max-w-7xl mx-auto px-6">
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-20 text-[#64748B]">No products found in this category.</div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {products.map((product, index) => {
+              {filteredProducts.map((product, index) => {
                 const layout = getProductVisual(product);
-                const pricing = getProductPricing(product);
+                const pricing = getDisplayPricing(product);
                 const discountPercent = Math.round(((pricing.original - pricing.final) / pricing.original) * 100);
 
                 return (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                  >
+                  <motion.div key={product.id} initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
                     <Link 
                       href={`/order?product=${product.id}`}
                       className="group flex flex-col h-full items-center justify-between p-10 bg-[#FFFFFF] rounded-[40px] border border-[#F1F5F9] shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.08)] transition-all duration-500 relative overflow-hidden"
                     >
-                      {/* Top Badges */}
                       <div className="w-full flex justify-between items-start z-20 pointer-events-none mb-4">
                         {layout.badge ? (
                           <div className="flex items-center gap-2 bg-[#F8FAFC] px-4 py-2 rounded-full text-[13px] font-medium text-[#0F172A] border border-[#E2E8F0]">
@@ -175,18 +197,17 @@ export default function ProductsPage() {
                         </div>
                       </div>
 
-                      {/* Visual Mockup Container */}
-                      <div className="mb-6 w-full z-10">
-                        {layout.visual}
-                      </div>
+                      <div className="mb-6 w-full z-10">{layout.visual}</div>
 
-                      {/* Content & Pricing */}
                       <div className="text-center space-y-3 mb-10 w-full z-10 flex-grow flex flex-col justify-end">
                         <h3 className="text-[26px] font-semibold text-[#0F172A] capitalize font-[family-name:var(--font-outfit)] tracking-tight">
                           {product.name || product.id.replace('-', ' ')}
                         </h3>
                         
-                        <div className="flex items-center justify-center gap-3">
+                        <div className="flex items-center justify-center gap-2">
+                          {pricing.hasMultipleSizes && (
+                            <span className="text-[13px] font-bold text-[#64748B] uppercase tracking-wider mt-1 mr-1">Starts at</span>
+                          )}
                           <span className="text-[17px] font-medium text-[#94A3B8] line-through decoration-[#CBD5E1]">
                             ₹{pricing.original}
                           </span>
@@ -196,9 +217,8 @@ export default function ProductsPage() {
                         </div>
                       </div>
 
-                      {/* Order Button */}
                       <div className="w-full text-center py-4 rounded-full bg-[#0F172A] text-white font-medium text-[16px] group-hover:bg-[#2563EB] group-hover:shadow-[0_10px_30px_-10px_rgba(37,99,235,0.5)] group-hover:scale-[1.02] active:scale-95 transition-all duration-300 z-10">
-                        Configure & Print
+                        {pricing.hasMultipleSizes ? 'Choose Size' : 'Configure & Print'}
                       </div>
                     </Link>
                   </motion.div>

@@ -40,10 +40,13 @@ export default function LoginPage() {
   
   const router = useRouter();
 
+  // === UPDATED: Role-based routing ===
   useEffect(() => {
     if (user) {
-      if (isAdmin) {
+      if (isAdmin || user.role === 'admin') {
         router.push('/admin');
+      } else if (user.role === 'delivery') {
+        router.push('/delivery-dashboard');
       } else {
         router.push('/my-orders');
       }
@@ -94,7 +97,6 @@ export default function LoginPage() {
     
     if (!signInFn || !signUpFn) {
       toast.error('Authentication functions missing in context.');
-      console.error('Auth context is missing signIn/login or signUp/register functions:', authContext);
       return;
     }
 
@@ -259,7 +261,6 @@ export default function LoginPage() {
             <div className="pt-2">
               <button
                 type="submit"
-                onClick={handleSubmit}
                 disabled={loading}
                 className="w-full bg-[#0F172A] hover:bg-[#2563EB] text-white rounded-full h-[56px] font-medium text-[16px] transition-all duration-300 hover:shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] active:scale-[0.98] flex items-center justify-center cursor-pointer"
               >
@@ -307,15 +308,10 @@ export default function LoginPage() {
         </motion.div>
       </div>
 
-      {/* RIGHT COLUMN: The "Tossed Stack" Visual (Desktop Only) */}
+      {/* RIGHT COLUMN: The "Tossed Stack" Visual */}
       <div className="hidden lg:flex w-full h-screen sticky top-0 bg-[#F8FAFC] items-center justify-center overflow-hidden border-l border-[#F1F5F9]">
-        
-        {/* Subtle radial glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#E0E7FF]/40 rounded-full blur-[100px] pointer-events-none" />
-
         <div className="relative w-[460px] h-[550px]">
-          
-          {/* Back Left Polaroid */}
           <motion.div 
             initial={{ opacity: 0, rotate: -30, x: -80, y: 80 }}
             animate={{ opacity: 1, rotate: -15, x: 0, y: 0 }}
@@ -326,8 +322,6 @@ export default function LoginPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-300/30 to-indigo-400/30" />
             </div>
           </motion.div>
-
-          {/* Bottom Right Polaroid */}
           <motion.div 
             initial={{ opacity: 0, rotate: 30, x: 80, y: 80 }}
             animate={{ opacity: 1, rotate: 12, x: 0, y: 0 }}
@@ -338,8 +332,6 @@ export default function LoginPage() {
               <div className="absolute inset-0 bg-gradient-to-bl from-rose-300/30 to-orange-200/30" />
             </div>
           </motion.div>
-
-          {/* Center Main Polaroid */}
           <motion.div 
             initial={{ opacity: 0, y: 150, scale: 0.85 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -356,7 +348,6 @@ export default function LoginPage() {
           </motion.div>
         </div>
       </div>
-
     </main>
   );
 }

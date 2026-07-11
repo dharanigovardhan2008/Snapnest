@@ -156,6 +156,25 @@ export const orderService = {
     });
   },
 
+  // NEW: Get Orders assigned specifically to a Delivery Partner's campus
+  async getDeliveryPartnerOrders(location) {
+    const q = query(
+      collection(db, collections.orders),
+      where('deliveryType', '==', 'delivery'),
+      where('address.name', '==', location)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.() || new Date(),
+        updatedAt: data.updatedAt?.toDate?.() || null,
+      };
+    });
+  },
+
   async updateOrder(orderId, updates) {
     const docRef = doc(db, collections.orders, orderId);
     await updateDoc(docRef, {
@@ -267,7 +286,6 @@ export const productService = {
     return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
   },
 
-  // NEW: Create Product Method
   async createProduct(productData) {
     // If no explicit ID is provided, auto-generate a slug from the name
     const id = productData.id || productData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -276,7 +294,6 @@ export const productService = {
     return id;
   },
 
-  // NEW: Delete Product Method
   async deleteProduct(productId) {
     const docRef = doc(db, collections.products, productId);
     await deleteDoc(docRef);

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, Download, Calendar, Truck, Package, X,
-  ShieldCheck, CheckCircle2, Printer, Image as ImageIcon, ExternalLink
+  ShieldCheck, CheckCircle2, Printer, Image as ImageIcon, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import ProtectedRoute from '../../../components/shared/ProtectedRoute';
 import AdminLayout from '../../../components/admin/AdminLayout';
@@ -15,7 +15,6 @@ import { orderService, loyaltyService, configService } from '../../../lib/firest
 import { formatCurrency, formatDate, downloadCSV, calculateDeliveryDate } from '../../../utils/helpers';
 import toast from 'react-hot-toast';
 
-// FIREBASE FIX: Direct import to force merge true
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
@@ -31,6 +30,9 @@ function OrdersContent() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyData, setVerifyData] = useState({ days: 3 });
+
+  // Standard campuses for delivery partners
+  const STANDARD_CAMPUSES = ['Loyola College', 'Saveetha University', 'Saveetha Dental College', 'Sathyabama University'];
 
   useEffect(() => {
     loadOrders();
@@ -107,7 +109,6 @@ function OrdersContent() {
     }
   };
 
-  // FIXED: Bulletproof points addition
   const handleUpdateStatus = async (order, newStatus) => {
     try {
       await orderService.updateOrder(order.id, { status: newStatus });
@@ -120,7 +121,6 @@ function OrdersContent() {
           const userLoyalty = await loyaltyService.getLoyalty(order.userId).catch(() => null);
           const newPoints = (userLoyalty?.points || 0) + pointsToAward;
           
-          // Force merge:true so it creates the profile if it doesn't exist!
           const loyaltyRef = doc(db, 'loyalty', order.userId);
           await setDoc(loyaltyRef, { 
             points: newPoints,
@@ -289,6 +289,14 @@ function OrdersContent() {
                       <td className="px-6 py-5">
                         <div className="flex flex-col items-start gap-2">
                           <StatusBadge status={order.status} />
+                          
+                          {/* NEW: Warn Admin if this is a custom address requiring manual delivery */}
+                          {order.deliveryType === 'delivery' && order.address?.name && !STANDARD_CAMPUSES.includes(order.address.name) && (
+                            <div className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 uppercase tracking-wider w-max">
+                              <AlertTriangle size={12} /> Manual Delivery Req.
+                            </div>
+                          )}
+
                           {order.estimatedDelivery && (
                             <span className="text-[12px] text-[#64748B] font-medium flex items-center gap-1.5 bg-blue-50/50 px-2 py-1 rounded-md border border-blue-100/50">
                               <Calendar size={12} className="text-blue-500" />
@@ -348,12 +356,13 @@ function OrdersContent() {
                             </button>
                           )}
 
+                          {/* Allow Admin to bypass the delivery partner directly for manual deliveries */}
                           {order.status === 'out_for_delivery' && (
                             <button
                               onClick={() => handleUpdateStatus(order, 'delivered')}
                               className="px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition-all shadow-[0_4px_12px_rgba(16,185,129,0.2)] hover:shadow-[0_6px_16px_rgba(16,185,129,0.4)] flex items-center gap-2 whitespace-nowrap active:scale-95"
                             >
-                              <CheckCircle2 size={16} /> Mark Delivered
+                              <CheckCircle2 size={16} /> Admin Force Delivered
                             </button>
                           )}
 

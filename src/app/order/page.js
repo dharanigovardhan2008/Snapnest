@@ -46,6 +46,10 @@ function OrderContent() {
 
   const [step, setStep] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  
+  // NEW: State to track which specific size/variant the user selects
+  const [selectedVariant, setSelectedVariant] = useState(null);
+
   const [designUrl, setDesignUrl] = useState(null);
   const [deliveryType, setDeliveryType] = useState('delivery');
   const [addresses, setAddresses] = useState([]);
@@ -70,6 +74,19 @@ function OrderContent() {
 
   useEffect(() => {
     if (selectedProduct) {
+      
+      // Select the first variant by default if variants exist
+      const variantsList = selectedProduct.variants?.length > 0 
+        ? selectedProduct.variants 
+        : [{ 
+            size: selectedProduct.size || 'Standard', 
+            price: selectedProduct.price || 0, 
+            originalPrice: selectedProduct.originalPrice || Math.round((selectedProduct.price || 0) * 1.2),
+            width: selectedProduct.minResolution?.width || 0,
+            height: selectedProduct.minResolution?.height || 0
+          }];
+      setSelectedVariant(variantsList[0]);
+
       if (selectedProduct.type !== 'custom' && selectedProduct.imageUrl) {
         setDesignUrl(selectedProduct.imageUrl);
       } else if (selectedProduct.type === 'custom') {
@@ -78,7 +95,7 @@ function OrderContent() {
         setDesignUrl(null);
       }
     }
-  }, [selectedProduct?.id]); // Changed dependency to only trigger when product ID changes
+  }, [selectedProduct?.id]);
 
   const loadData = async () => {
     if (productId && products.length > 0) {
@@ -145,7 +162,10 @@ function OrderContent() {
   };
 
   // --- Dynamic Pricing Calculations ---
-  const basePrice = selectedProduct?.price || 0;
+  const basePrice = selectedVariant?.price || selectedProduct?.price || 0;
+  const currentOriginalPrice = selectedVariant?.originalPrice || selectedProduct?.originalPrice || Math.round(basePrice * 1.2);
+  const discountPercentage = currentOriginalPrice > basePrice ? Math.round(((currentOriginalPrice - basePrice) / currentOriginalPrice) * 100) : 0;
+
   const pointValueRupees = config?.pointValueInRupees || 1;
   const userPoints = loyalty?.points || 0;
   const maxDiscountValue = userPoints * pointValueRupees;
@@ -168,13 +188,18 @@ function OrderContent() {
     try {
       const orderId = generateOrderId();
 
+      // Format the name so the admin knows exactly which size was ordered
+      const finalProductName = selectedVariant 
+        ? `${selectedProduct.name} - ${selectedVariant.size}` 
+        : selectedProduct.name;
+
       const orderData = {
         orderId,
         userId: user.uid,
         userEmail: user.email,
         userName: user.name,
         productId: selectedProduct.id,
-        productName: selectedProduct.name,
+        productName: finalProductName,
         designUrl,
         price: basePrice,
         discountApplied: appliedDiscount,
@@ -214,6 +239,8 @@ function OrderContent() {
     toast.success(`${field} copied!`);
     setTimeout(() => setCopiedField(null), 2000);
   };
+
+  const variantsList = selectedProduct?.variants?.length > 0 ? selectedProduct.variants : [];
 
   if (!selectedProduct && products.length > 0) {
     return (
@@ -315,7 +342,7 @@ function OrderContent() {
                 className="flex-grow flex flex-col"
               >
                 
-                {/* Step 1: Product Selection */}
+                {/* Step 1: Product Selection & Size Variant */}
                 {step === 1 && selectedProduct && (
                   <div>
                     <h2 className="text-3xl font-semibold mb-8 text-[#0F172A] font-[family-name:var(--font-outfit)] tracking-tight">Format Details</h2>
@@ -332,28 +359,68 @@ function OrderContent() {
                           {selectedProduct.type === 'custom' ? 'Custom Print' : 'Pre-Printed Edition'}
                         </div>
                       </div>
+                      
                       <div className="space-y-6">
                         <div>
                           <h3 className="text-[32px] font-bold text-[#0F172A] font-[family-name:var(--font-outfit)] tracking-tight mb-2">{selectedProduct.name}</h3>
                           <p className="text-[17px] text-[#64748B] leading-relaxed">{selectedProduct.description}</p>
                         </div>
+                        
+                        {/* SIZE SELECTOR */}
+                        {variantsList.length > 1 && (
+                          <div className="space-y-3">
+                            <span className="text-[#64748B] text-[13px] font-bold uppercase tracking-wider">Select Size</span>
+                            <div className="flex flex-wrap gap-2">
+                              {variantsList.map((variant, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setSelectedVariant(variant)}
+                                  className={`px-5 py-2.5 rounded-full text-[14px] font-bold transition-all border ${
+                                    selectedVariant === variant
+                                      ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md'
+                                      : 'bg-white text-[#64748B] border-[#E2E8F0] hover:border-[#0F172A] hover:text-[#0F172A]'
+                                  }`}
+                                >
+                                  {variant.size}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="space-y-3 bg-[#F8FAFC] p-6 rounded-[24px] border border-[#F1F5F9]">
                           <div className="flex justify-between items-center text-[15px]">
                             <span className="text-[#64748B]">Dimensions</span>
-                            <span className="font-medium text-[#0F172A]">{selectedProduct.size}</span>
+                            <span className="font-medium text-[#0F172A]">{selectedVariant?.size || selectedProduct.size}</span>
                           </div>
                           {selectedProduct.type === 'custom' && (
                             <div className="flex justify-between items-center text-[15px]">
                               <span className="text-[#64748B]">Min Resolution</span>
-                              <span className="font-medium text-[#0F172A]">{selectedProduct.minResolution?.width || 0}x{selectedProduct.minResolution?.height || 0}px</span>
+                              <span className="font-medium text-[#0F172A]">
+                                {selectedVariant?.width || selectedProduct.minResolution?.width || 0}x
+                                {selectedVariant?.height || selectedProduct.minResolution?.height || 0}px
+                              </span>
                             </div>
                           )}
                         </div>
-                        <div className="pt-2">
+                        
+                        {/* PRICE & DISCOUNT DISPLAY */}
+                        <div className="pt-2 flex items-center gap-3">
+                          {currentOriginalPrice > basePrice && (
+                            <p className="text-[20px] text-[#94A3B8] line-through decoration-[#CBD5E1] font-medium">
+                              {formatCurrency(currentOriginalPrice)}
+                            </p>
+                          )}
                           <p className="text-[36px] font-bold text-[#0F172A] tracking-tighter">
-                            {formatCurrency(selectedProduct.price)}
+                            {formatCurrency(basePrice)}
                           </p>
+                          {discountPercentage > 0 && (
+                            <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 px-3 py-1.5 rounded-full text-[13px] font-bold tracking-wide">
+                              {discountPercentage}% OFF
+                            </div>
+                          )}
                         </div>
+
                       </div>
                     </div>
                   </div>
@@ -371,7 +438,10 @@ function OrderContent() {
                         {selectedProduct.type === 'custom' ? (
                           <ImageUpload
                             onUploadSuccess={handleImageUpload}
-                            minResolution={selectedProduct.minResolution}
+                            minResolution={{
+                              width: selectedVariant?.width || selectedProduct.minResolution?.width || 0,
+                              height: selectedVariant?.height || selectedProduct.minResolution?.height || 0
+                            }}
                             folder="designs"
                           />
                         ) : (
